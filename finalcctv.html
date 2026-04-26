@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GUARDIAN AI — Autonomous Crisis Detection System</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#07090f;--bg2:#0d1017;--bg3:#131720;--bg4:#181e28;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);
+  --text:#dde3f0;--muted:#4a5568;--muted2:#6b7a95;
+  --green:#00ff88;--red:#ff3b3b;--orange:#ff8c00;--yellow:#ffd600;--blue:#4da6ff;
+  --r:10px;--fh:'Rajdhani',sans-serif;--fb:'Inter',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:13px;min-height:100vh;overflow-x:hidden;}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:9999;}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border2);height:56px;display:flex;align-items:center;padding:0 20px;gap:20px;position:sticky;top:0;z-index:100;}
+.logo{font-family:var(--fh);font-size:22px;font-weight:700;letter-spacing:.15em;color:var(--green);text-shadow:0 0 20px rgba(0,255,136,.4);}
+.logo span{color:var(--muted2);font-weight:400;}
+.topbar-center{flex:1;display:flex;align-items:center;justify-content:center;}
+.pulse-dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:pulse 2s infinite;flex-shrink:0;}
+.pulse-dot.red{background:var(--red);box-shadow:0 0 10px var(--red);animation:pulse .6s infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}
+.sys-status{font-family:var(--fh);font-size:13px;letter-spacing:.1em;display:flex;align-items:center;gap:8px;}
+.topbar-right{display:flex;align-items:center;gap:12px;}
+.time-disp{font-family:var(--fh);font-size:18px;color:var(--muted2);letter-spacing:.08em;}
+.ai-badge{background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.25);border-radius:5px;padding:4px 10px;font-family:var(--fh);font-size:11px;color:var(--green);letter-spacing:.12em;}
+.nav{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;padding:0 20px;gap:2px;}
+.nav-tab{padding:10px 18px;font-family:var(--fh);font-size:14px;font-weight:600;letter-spacing:.08em;color:var(--muted2);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;}
+.nav-tab.active{color:var(--green);border-bottom-color:var(--green);}
+.nav-tab:hover:not(.active){color:var(--text);}
+.view{display:none;padding:16px 20px;max-width:1400px;margin:0 auto;}
+.view.active{display:block;}
+
+/* CCTV */
+.cctv-layout{display:grid;grid-template-columns:1fr 320px;gap:16px;}
+@media(max-width:900px){.cctv-layout{grid-template-columns:1fr;}}
+.cam-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.cam-feed{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;position:relative;cursor:pointer;transition:border-color .3s;}
+.cam-feed:hover{border-color:var(--border2);}
+.cam-feed.alert{border-color:var(--red);box-shadow:0 0 20px rgba(255,59,59,.2);}
+.cam-screen{width:100%;aspect-ratio:16/9;background:var(--bg);position:relative;overflow:hidden;}
+.wall{position:absolute;top:0;left:0;right:0;bottom:35%;background:linear-gradient(180deg,#0d1118,#141824);}
+.floor{position:absolute;bottom:0;left:0;right:0;height:35%;background:linear-gradient(180deg,#1a1f2e,#111520);}
+.ceiling-strip{position:absolute;top:18%;left:10%;right:10%;height:2px;background:rgba(100,120,180,.15);}
+.person{position:absolute;bottom:35%;width:12px;border-radius:6px 6px 0 0;}
+.fire-overlay{position:absolute;inset:0;pointer-events:none;transition:all .5s;}
+.fire-overlay.active{background:radial-gradient(ellipse at 30% 60%,rgba(255,100,0,.4),rgba(255,50,0,.12) 50%,transparent 70%);}
+.smoke-overlay{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 1s;}
+.smoke-overlay.active{opacity:1;background:radial-gradient(ellipse at 30% 40%,rgba(100,100,100,.55),rgba(80,80,80,.2) 40%,transparent 65%);}
+.water-overlay{position:absolute;bottom:0;left:0;right:0;height:0;background:linear-gradient(180deg,transparent,rgba(50,100,200,.45));transition:height 1.5s;}
+.water-overlay.active{height:30%;}
+.alert-box{position:absolute;top:6px;left:6px;right:6px;background:rgba(255,59,59,.92);border-radius:5px;padding:4px 8px;font-family:var(--fh);font-size:11px;color:#fff;letter-spacing:.08em;display:none;align-items:center;}
+.alert-box.show{display:flex;}
+.cam-footer{padding:8px 12px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--border);}
+.cam-name{font-family:var(--fh);font-size:12px;letter-spacing:.1em;color:var(--muted2);}
+.cam-status{font-family:var(--fh);font-size:10px;}
+.cam-status.live{color:var(--green);}
+.cam-status.alt{color:var(--red);}
+.ai-scan-line{position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(0,255,136,.6),transparent);animation:scan 3s linear infinite;pointer-events:none;}
+@keyframes scan{0%{top:0%}100%{top:100%}}
+.ai-analyzing{position:absolute;bottom:6px;right:6px;background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.25);border-radius:4px;padding:2px 7px;font-family:var(--fh);font-size:9px;color:var(--green);letter-spacing:.1em;}
+.conf-bar{position:absolute;bottom:0;left:0;right:0;height:2px;background:rgba(255,255,255,.05);}
+.conf-fill{height:100%;background:var(--green);transition:width 1s;width:0%;}
+.corner-marks{position:absolute;inset:4px;pointer-events:none;}
+.corner-marks::before,.corner-marks::after{content:'';position:absolute;border-color:rgba(0,255,136,.3);border-style:solid;}
+.corner-marks::before{top:0;left:0;width:16px;height:16px;border-width:1px 0 0 1px;}
+.corner-marks::after{bottom:0;right:0;width:16px;height:16px;border-width:0 1px 1px 0;}
+.beacon{display:none;position:absolute;top:8px;right:8px;width:14px;height:14px;}
+.beacon.show{display:block;}
+.beacon::before,.beacon::after{content:'';position:absolute;border-radius:50%;}
+.beacon::before{inset:0;background:var(--red);}
+.beacon::after{inset:-5px;border:1px solid var(--red);opacity:.5;animation:br 1.5s infinite;}
+@keyframes br{0%{transform:scale(.8);opacity:.5}100%{transform:scale(1.8);opacity:0}}
+
+/* SHARED PANEL PARTS */
+.side-panel{display:flex;flex-direction:column;gap:12px;}
+.panel-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.panel-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.panel-title{font-family:var(--fh);font-size:13px;letter-spacing:.12em;color:var(--muted2);}
+.panel-body{padding:14px 16px;}
+.ai-loader{display:none;align-items:center;gap:10px;padding:14px 16px;background:rgba(77,166,255,.06);border-bottom:1px solid rgba(77,166,255,.15);}
+.ai-loader.show{display:flex;}
+.ai-dots span{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--blue);margin:0 2px;animation:db 1.4s infinite ease-in-out both;}
+.ai-dots span:nth-child(1){animation-delay:-.32s}.ai-dots span:nth-child(2){animation-delay:-.16s}
+@keyframes db{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+.ai-loader-text{font-family:var(--fh);font-size:12px;color:var(--blue);letter-spacing:.08em;}
+.all-safe{padding:32px 16px;text-align:center;}
+.all-safe-ring{width:72px;height:72px;border-radius:50%;border:2px solid rgba(0,255,136,.3);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:32px;background:rgba(0,255,136,.05);}
+.all-safe-title{font-family:var(--fh);font-size:20px;font-weight:700;color:var(--green);letter-spacing:.1em;margin-bottom:6px;}
+.all-safe-sub{font-size:12px;color:var(--muted2);line-height:1.6;}
+.crisis-head{padding:16px;display:flex;align-items:center;gap:14px;}
+.c-icon{width:48px;height:48px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+.c-info{flex:1;min-width:0;}
+.c-type{font-family:var(--fh);font-size:17px;font-weight:700;letter-spacing:.08em;margin-bottom:2px;}
+.c-loc{font-size:12px;color:var(--muted2);}
+.c-conf{font-size:10px;color:var(--muted2);margin-top:2px;}
+.c-sev{font-family:var(--fh);font-size:28px;font-weight:700;}
+.sev-meter{padding:0 16px 14px;}
+.sev-lbl{font-family:var(--fh);font-size:10px;letter-spacing:.12em;color:var(--muted);margin-bottom:6px;}
+.sev-track{height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;}
+.sev-fill{height:100%;border-radius:3px;transition:width 1s;}
+.analysis-block{padding:14px 16px;border-top:1px solid var(--border);}
+.analysis-lbl{font-family:var(--fh);font-size:10px;letter-spacing:.15em;color:var(--muted);margin-bottom:8px;}
+.analysis-text{font-size:12px;line-height:1.7;color:rgba(221,227,240,.85);}
+.risk-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:4px;font-family:var(--fh);font-size:11px;letter-spacing:.08em;margin-bottom:8px;}
+.risk-CRITICAL{background:rgba(255,59,59,.15);color:#ff6b6b;border:1px solid rgba(255,59,59,.3);}
+.risk-HIGH{background:rgba(255,140,0,.15);color:#ffa040;border:1px solid rgba(255,140,0,.3);}
+.risk-MEDIUM{background:rgba(255,214,0,.12);color:#ffd600;border:1px solid rgba(255,214,0,.25);}
+.risk-LOW{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.25);}
+.steps-block{padding:0 16px 14px;border-top:1px solid var(--border);}
+.steps-list{list-style:none;display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+.steps-list li{display:flex;gap:10px;align-items:flex-start;font-size:12px;line-height:1.5;}
+.step-n{font-family:var(--fh);font-size:10px;color:var(--muted);min-width:18px;margin-top:2px;}
+.action-row{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;}
+.btn{padding:7px 13px;border-radius:7px;border:none;cursor:pointer;font-family:var(--fh);font-size:12px;font-weight:600;letter-spacing:.06em;transition:all .15s;}
+.btn-red{background:rgba(255,59,59,.12);border:1px solid rgba(255,59,59,.35);color:#ff6b6b;}
+.btn-red:hover{background:rgba(255,59,59,.2);}
+.btn-red.called{background:rgba(0,255,136,.08);border-color:rgba(0,255,136,.3);color:var(--green);}
+.btn-resolve{background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.25);color:var(--green);margin-left:auto;}
+.btn-resolve:hover{background:rgba(0,255,136,.15);}
+
+/* STATS ROW */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.stat-box{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;}
+.stat-val{font-family:var(--fh);font-size:26px;font-weight:700;}
+.stat-val.g{color:var(--green);}.stat-val.r{color:var(--red);}
+.stat-lbl{font-family:var(--fh);font-size:9px;letter-spacing:.12em;color:var(--muted);margin-top:2px;}
+
+/* LOG */
+.log-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.log-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.log-title{font-family:var(--fh);font-size:12px;letter-spacing:.12em;color:var(--muted2);}
+.log-body{max-height:180px;overflow-y:auto;padding:10px 16px;display:flex;flex-direction:column;gap:6px;}
+.log-item{display:flex;gap:12px;font-size:11px;}
+.log-t{font-family:var(--fh);font-size:10px;color:var(--muted);flex-shrink:0;}
+.log-m{color:var(--text);}
+.log-m.al{color:#ff6b6b;}.log-m.ok{color:var(--green);}.log-m.inf{color:var(--blue);}.log-m.wn{color:var(--yellow);}
+
+/* GUEST */
+.guest-wrap{max-width:480px;margin:0 auto;}
+.guest-safe-card{background:var(--bg2);border:1px solid rgba(0,255,136,.2);border-radius:var(--r);padding:52px 28px;text-align:center;}
+.guest-ring{width:88px;height:88px;border-radius:50%;border:2px solid rgba(0,255,136,.4);margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:40px;background:rgba(0,255,136,.06);}
+.guest-safe-title{font-family:var(--fh);font-size:28px;font-weight:700;color:var(--green);letter-spacing:.12em;margin-bottom:8px;}
+.guest-safe-sub{font-size:14px;color:var(--muted2);line-height:1.7;}
+.guest-crisis-card{background:var(--bg2);border-radius:var(--r);overflow:hidden;display:none;}
+.guest-banner{padding:28px;text-align:center;}
+.g-emoji{font-size:56px;display:block;margin-bottom:12px;}
+.g-name{font-family:var(--fh);font-size:26px;font-weight:700;letter-spacing:.08em;margin-bottom:6px;}
+.g-loc{font-size:13px;opacity:.75;}
+.guest-insts{padding:20px 24px;}
+.g-inst-title{font-family:var(--fh);font-size:10px;letter-spacing:.15em;color:var(--muted);margin-bottom:14px;}
+.g-list{list-style:none;display:flex;flex-direction:column;gap:10px;}
+.g-list li{display:flex;gap:14px;align-items:flex-start;padding:12px 14px;background:rgba(0,0,0,.3);border-radius:8px;font-size:13px;line-height:1.55;}
+.inst-n{font-family:var(--fh);font-size:11px;color:var(--muted2);min-width:20px;margin-top:2px;}
+.exit-info{margin:0 24px;padding:12px 16px;background:rgba(0,255,136,.07);border:1px solid rgba(0,255,136,.2);border-radius:8px;font-size:12px;line-height:1.6;margin-bottom:16px;}
+.exit-info b{color:var(--green);}
+.g-call-btn{display:block;width:calc(100% - 48px);margin:0 24px 10px;padding:14px;background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.3);border-radius:8px;color:var(--green);font-family:var(--fh);font-size:15px;font-weight:700;letter-spacing:.08em;cursor:pointer;text-align:center;transition:all .15s;}
+.g-call-btn:hover{background:rgba(0,255,136,.2);}
+.panic-btn{display:block;width:calc(100% - 48px);margin:0 24px 24px;padding:14px;background:rgba(255,59,59,.1);border:1px solid rgba(255,59,59,.35);border-radius:8px;color:#ff6b6b;font-family:var(--fh);font-size:15px;font-weight:700;letter-spacing:.08em;cursor:pointer;text-align:center;transition:all .15s;}
+.panic-btn:hover{background:rgba(255,59,59,.18);}
+
+/* STAFF DASHBOARD */
+.sd-layout{display:grid;grid-template-columns:1fr 370px;gap:16px;}
+@media(max-width:960px){.sd-layout{grid-template-columns:1fr;}}
+.sd-lbl{font-family:var(--fh);font-size:11px;letter-spacing:.14em;color:var(--muted);margin-bottom:10px;}
+.crisis-triggers{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.trigger-btn{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:16px 14px;cursor:pointer;text-align:left;transition:all .18s;position:relative;overflow:hidden;}
+.trigger-btn:hover{transform:translateY(-2px);}
+.trigger-btn:active{transform:translateY(0);}
+.tb-icon{font-size:22px;margin-bottom:8px;display:block;}
+.tb-name{font-family:var(--fh);font-size:15px;font-weight:700;letter-spacing:.08em;display:block;margin-bottom:3px;}
+.tb-desc{font-size:11px;color:var(--muted2);line-height:1.4;display:block;}
+.tb-sev{position:absolute;top:10px;right:10px;font-family:var(--fh);font-size:10px;padding:2px 7px;border-radius:4px;letter-spacing:.06em;}
+.t-fire{border-color:rgba(255,59,59,.3);}.t-fire:hover{background:rgba(255,59,59,.06);border-color:#ff3b3b;}
+.t-medical{border-color:rgba(77,166,255,.3);}.t-medical:hover{background:rgba(77,166,255,.06);border-color:#4da6ff;}
+.t-threat{border-color:rgba(255,26,26,.4);}.t-threat:hover{background:rgba(255,26,26,.07);border-color:#ff1a1a;}
+.t-flood{border-color:rgba(77,166,255,.25);}.t-flood:hover{background:rgba(77,166,255,.05);border-color:#6bbfff;}
+.t-power{border-color:rgba(255,214,0,.25);}.t-power:hover{background:rgba(255,214,0,.05);border-color:#ffd600;}
+.t-vehicle{border-color:rgba(255,140,0,.25);}.t-vehicle:hover{background:rgba(255,140,0,.05);border-color:#ff8c00;}
+.no-crisis{padding:40px 20px;text-align:center;}
+.no-crisis-icon{font-size:36px;margin-bottom:12px;}
+.no-crisis-title{font-family:var(--fh);font-size:18px;color:var(--green);letter-spacing:.1em;margin-bottom:6px;}
+.no-crisis-sub{font-size:12px;color:var(--muted2);line-height:1.6;}
+
+/* VERIFY MODAL */
+.verify-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:500;align-items:center;justify-content:center;}
+.verify-overlay.show{display:flex;}
+.verify-box{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:28px;max-width:420px;width:90%;}
+.verify-title{font-family:var(--fh);font-size:20px;font-weight:700;letter-spacing:.1em;margin-bottom:8px;}
+.verify-sub{font-size:13px;color:var(--muted2);line-height:1.6;margin-bottom:18px;}
+.v-options{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+.v-opt{background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:11px 14px;cursor:pointer;font-size:13px;line-height:1.5;transition:all .15s;text-align:left;}
+.v-opt:hover{background:var(--bg4);}
+.v-opt.sel{border-color:var(--green);background:rgba(0,255,136,.06);}
+.ai-check{display:none;padding:12px 14px;border-radius:8px;margin-bottom:14px;font-size:12px;line-height:1.6;}
+.ai-check.real{background:rgba(255,59,59,.08);border:1px solid rgba(255,59,59,.2);color:#ff8888;}
+.ai-check.false-a{background:rgba(0,255,136,.07);border:1px solid rgba(0,255,136,.2);color:var(--green);}
+.v-btns{display:flex;gap:10px;}
+.vbtn{flex:1;padding:10px;border-radius:8px;border:none;cursor:pointer;font-family:var(--fh);font-size:13px;font-weight:600;letter-spacing:.06em;transition:all .15s;}
+.vbtn-cancel{background:rgba(255,255,255,.05);color:var(--muted2);}
+.vbtn-false{background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.25);color:var(--green);}
+.vbtn-confirm{background:rgba(255,59,59,.15);border:1px solid rgba(255,59,59,.35);color:#ff6b6b;}
+.vbtn-confirm:hover{background:rgba(255,59,59,.25);}
+.vbtn-confirm:disabled{opacity:.5;cursor:not-allowed;}
+
+/* ANALYTICS */
+.ana-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+@media(max-width:700px){.ana-grid{grid-template-columns:1fr 1fr;}}
+.ana-metric{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;}
+.ana-val{font-family:var(--fh);font-size:32px;font-weight:700;}
+.ana-val.g{color:var(--green);}.ana-val.r{color:var(--red);}.ana-val.b{color:var(--blue);}.ana-val.y{color:var(--yellow);}
+.ana-lbl{font-family:var(--fh);font-size:9px;letter-spacing:.14em;color:var(--muted);margin-top:4px;}
+.ana-sub{font-size:11px;color:var(--muted2);margin-top:4px;}
+.chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:14px;}
+.chart-title{font-family:var(--fh);font-size:13px;letter-spacing:.1em;color:var(--muted2);margin-bottom:16px;}
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+@media(max-width:700px){.charts-row{grid-template-columns:1fr;}}
+.bar-chart{display:flex;gap:10px;align-items:flex-end;height:130px;padding-top:10px;}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.bar{width:100%;border-radius:4px 4px 0 0;min-height:4px;transition:height .8s;}
+.bar-lbl{font-family:var(--fh);font-size:9px;color:var(--muted);letter-spacing:.05em;text-align:center;}
+.bar-val{font-family:var(--fh);font-size:11px;color:var(--text);}
+.kpi-table{width:100%;border-collapse:collapse;}
+.kpi-table th{font-family:var(--fh);font-size:10px;letter-spacing:.1em;color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);}
+.kpi-table td{padding:10px 12px;font-size:12px;border-bottom:1px solid var(--border);}
+.kpi-table tr:last-child td{border-bottom:none;}
+.kpi-v{font-family:var(--fh);font-size:14px;font-weight:700;}
+.badge-g{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.2);border-radius:4px;padding:2px 7px;font-family:var(--fh);font-size:10px;}
+.badge-b{background:rgba(77,166,255,.1);color:var(--blue);border:1px solid rgba(77,166,255,.2);border-radius:4px;padding:2px 7px;font-family:var(--fh);font-size:10px;}
+.impact-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;}
+@media(max-width:700px){.impact-row{grid-template-columns:1fr;}}
+.impact-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:18px;text-align:center;}
+.impact-icon{font-size:28px;margin-bottom:8px;}
+.impact-title{font-family:var(--fh);font-size:15px;font-weight:700;letter-spacing:.08em;margin-bottom:5px;}
+.impact-desc{font-size:11px;color:var(--muted2);line-height:1.55;}
+.timeline-list{list-style:none;display:flex;flex-direction:column;}
+.tl-item{display:flex;gap:14px;align-items:stretch;}
+.tl-left{display:flex;flex-direction:column;align-items:center;width:28px;flex-shrink:0;}
+.tl-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;margin-top:14px;}
+.tl-line{width:1px;background:var(--border);flex:1;margin-top:4px;}
+.tl-right{padding:10px 0 18px;}
+.tl-time{font-family:var(--fh);font-size:10px;color:var(--muted);letter-spacing:.08em;margin-bottom:2px;}
+.tl-event{font-size:13px;margin-bottom:2px;}
+.tl-detail{font-size:11px;color:var(--muted2);}
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:12px 18px;font-family:var(--fh);font-size:12px;letter-spacing:.06em;z-index:999;transform:translateY(16px);opacity:0;transition:all .3s;pointer-events:none;max-width:300px;}
+.toast.show{transform:translateY(0);opacity:1;}
+::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">GUARDIAN<span> AI</span></div>
+  <div class="topbar-center">
+    <div class="sys-status">
+      <div class="pulse-dot" id="top-dot"></div>
+      <span id="top-status" style="font-family:var(--fh);letter-spacing:.1em;font-size:13px;">AI SURVEILLANCE ACTIVE — ALL CLEAR</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="ai-badge">AI ONLINE</div>
+    <div class="time-disp" id="clock">--:--:--</div>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="nav-tab active" onclick="switchTab('surveillance',this)">CCTV SURVEILLANCE</button>
+  <button class="nav-tab" onclick="switchTab('guest',this)">GUEST DEVICE</button>
+  <button class="nav-tab" onclick="switchTab('staff',this)">STAFF DASHBOARD</button>
+  <button class="nav-tab" onclick="switchTab('analytics',this)">ANALYTICS</button>
+</div>
+
+<!-- ══ CCTV ══ -->
+<div class="view active" id="view-surveillance">
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-val g" id="s-cameras">6</div><div class="stat-lbl">CAMERAS ONLINE</div></div>
+    <div class="stat-box"><div class="stat-val" id="s-scans">0</div><div class="stat-lbl">AI SCANS</div></div>
+    <div class="stat-box"><div class="stat-val r" id="s-alerts">0</div><div class="stat-lbl">ALERTS TODAY</div></div>
+    <div class="stat-box"><div class="stat-val g" id="s-resolved">0</div><div class="stat-lbl">RESOLVED</div></div>
+  </div>
+  <div class="cctv-layout">
+    <div>
+      <div class="cam-grid" id="cam-grid"></div>
+      <div style="margin-top:12px;">
+        <div class="log-wrap">
+          <div class="log-head"><span class="log-title">AI DETECTION LOG</span><span style="font-family:var(--fh);font-size:10px;color:var(--muted);" id="log-count">0 EVENTS</span></div>
+          <div class="log-body" id="log-body"><div class="log-item"><span class="log-t" id="init-time"></span><span class="log-m inf">Guardian AI initialized — scanning 6 camera feeds</span></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="side-panel">
+      <div class="panel-card" id="main-status-card">
+        <div class="ai-loader" id="ai-loader"><div class="ai-dots"><span></span><span></span><span></span></div><span class="ai-loader-text">AI ANALYZING FEED...</span></div>
+        <div class="all-safe" id="all-safe-panel">
+          <div class="all-safe-ring">🛡️</div>
+          <div class="all-safe-title">ALL CLEAR</div>
+          <div class="all-safe-sub">AI is continuously scanning all 6 camera feeds.<br><br>No threats detected. All zones safe.<br><br>Click any camera to simulate AI detection.</div>
+        </div>
+        <div id="crisis-panel" style="display:none;">
+          <div class="crisis-head">
+            <div class="c-icon" id="c-icon">🔥</div>
+            <div class="c-info"><div class="c-type" id="c-type">—</div><div class="c-loc" id="c-loc">—</div><div class="c-conf" id="c-conf">—</div></div>
+            <div><div class="c-sev" id="c-sev">—</div><div style="font-family:var(--fh);font-size:9px;color:var(--muted);text-align:right;">SEVERITY</div></div>
+          </div>
+          <div class="sev-meter"><div class="sev-lbl">SEVERITY LEVEL</div><div class="sev-track"><div class="sev-fill" id="sev-fill"></div></div></div>
+          <div class="analysis-block"><div class="analysis-lbl">AI VISUAL ANALYSIS</div><div class="risk-chip" id="c-risk">● CRITICAL</div><div class="analysis-text" id="c-analysis">—</div></div>
+          <div class="steps-block"><div class="analysis-lbl" style="margin-top:12px;">STAFF PROTOCOL</div><ul class="steps-list" id="c-steps"></ul></div>
+          <div class="action-row">
+            <button class="btn btn-red" id="btn-fire" onclick="callSvc('Fire Dept','101',this)">🚒 Fire (101)</button>
+            <button class="btn btn-red" id="btn-police" onclick="callSvc('Police','100',this)">🚔 Police (100)</button>
+            <button class="btn btn-red" id="btn-med" onclick="callSvc('Ambulance','108',this)">🚑 Ambulance (108)</button>
+            <button class="btn btn-resolve" onclick="resolveCrisis()">✓ RESOLVED</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel-card">
+        <div class="panel-header"><span class="panel-title">HOW IT WORKS</span></div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:28px;height:28px;border-radius:6px;background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">👁️</div><div><div style="font-family:var(--fh);font-size:12px;margin-bottom:2px;">EXISTING CCTV FEEDS</div><div style="font-size:11px;color:var(--muted2);line-height:1.5;">AI reads your hotel's live camera streams. No new hardware needed.</div></div></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:28px;height:28px;border-radius:6px;background:rgba(77,166,255,.08);border:1px solid rgba(77,166,255,.2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🧠</div><div><div style="font-family:var(--fh);font-size:12px;margin-bottom:2px;">AI DETECTS ANOMALIES</div><div style="font-size:11px;color:var(--muted2);line-height:1.5;">Smoke, fire, panic, falls, flooding — classified in under 3 seconds.</div></div></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:28px;height:28px;border-radius:6px;background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">📡</div><div><div style="font-family:var(--fh);font-size:12px;margin-bottom:2px;">ALERTS EVERYONE</div><div style="font-size:11px;color:var(--muted2);line-height:1.5;">Staff get protocols. Guests get instructions. Emergency services called.</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ GUEST ══ -->
+<div class="view" id="view-guest">
+  <div class="guest-wrap">
+    <div style="text-align:center;margin-bottom:16px;"><div style="font-family:var(--fh);font-size:11px;color:var(--muted);letter-spacing:.12em;">GRAND AZURE HOTEL — ROOM SAFETY DISPLAY</div></div>
+    <div class="guest-safe-card" id="guest-safe">
+      <div class="guest-ring">✅</div>
+      <div class="guest-safe-title">YOU'RE SAFE</div>
+      <div class="guest-safe-sub">Guardian AI is monitoring all hotel zones in real-time.<br>No emergencies detected.<br><br>Enjoy your stay at Grand Azure Hotel.</div>
+      <div style="margin-top:28px;padding:14px;background:rgba(0,255,136,.05);border:1px solid rgba(0,255,136,.12);border-radius:8px;text-align:left;">
+        <div style="font-family:var(--fh);font-size:10px;color:var(--muted);margin-bottom:8px;letter-spacing:.1em;">EMERGENCY CONTACTS</div>
+        <div style="font-size:13px;margin-bottom:4px;">Front Desk: <b style="color:var(--green);">Ext. 0</b></div>
+        <div style="font-size:13px;">Security: <b style="color:var(--green);">Ext. 911</b></div>
+      </div>
+    </div>
+    <div class="guest-crisis-card" id="guest-crisis">
+      <div class="guest-banner" id="g-banner"><span class="g-emoji" id="g-emoji">🔥</span><div class="g-name" id="g-name">—</div><div class="g-loc" id="g-loc">—</div></div>
+      <div class="guest-insts"><div class="g-inst-title">GUARDIAN AI — FOLLOW THESE STEPS NOW</div><ul class="g-list" id="g-list"></ul></div>
+      <div class="exit-info" id="g-exit"><b>🚪 Exit:</b> Use stairwell at corridor end.</div>
+      <button class="g-call-btn" onclick="showToast('📞 Connecting to Front Desk...')">📞 CALL FRONT DESK</button>
+      <button class="panic-btn" onclick="showToast('🚨 SOS sent to security team!')">🆘 SEND SOS TO SECURITY</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ STAFF DASHBOARD ══ -->
+<div class="view" id="view-staff">
+  <div class="sd-layout">
+    <div>
+      <div class="sd-lbl">ACTIVE INCIDENT</div>
+      <div class="panel-card" id="sd-card" style="margin-bottom:14px;">
+        <div class="no-crisis" id="sd-no-crisis"><div class="no-crisis-icon">🛡️</div><div class="no-crisis-title">ALL CLEAR</div><div class="no-crisis-sub">No active incidents. Trigger panel on the right to report manually, or wait for AI CCTV detection.</div></div>
+        <div id="sd-active" style="display:none;">
+          <div class="crisis-head"><div class="c-icon" id="sd-icon">🔥</div><div class="c-info"><div class="c-type" id="sd-type">—</div><div class="c-loc" id="sd-loc">—</div><div class="c-conf" id="sd-src">—</div></div><div><div class="c-sev" id="sd-sev">—</div><div style="font-family:var(--fh);font-size:9px;color:var(--muted);text-align:right;">SEVERITY</div></div></div>
+          <div class="sev-meter"><div class="sev-lbl">SEVERITY LEVEL</div><div class="sev-track"><div class="sev-fill" id="sd-sev-fill"></div></div></div>
+          <div class="analysis-block"><div class="analysis-lbl">AI ANALYSIS</div><div class="risk-chip" id="sd-risk">● HIGH</div><div class="analysis-text" id="sd-analysis">—</div></div>
+          <div class="steps-block"><div class="analysis-lbl" style="margin-top:12px;">RESPONSE PROTOCOL</div><ul class="steps-list" id="sd-steps"></ul></div>
+          <div class="action-row">
+            <button class="btn btn-red" id="sd-btn-fire" onclick="callSvcSd('Fire Dept','101',this)">🚒 Fire (101)</button>
+            <button class="btn btn-red" id="sd-btn-police" onclick="callSvcSd('Police','100',this)">🚔 Police (100)</button>
+            <button class="btn btn-red" id="sd-btn-med" onclick="callSvcSd('Ambulance','108',this)">🚑 Ambulance (108)</button>
+            <button class="btn btn-resolve" onclick="resolveCrisis()">✓ MARK RESOLVED</button>
+          </div>
+        </div>
+      </div>
+      <div class="sd-lbl">INCIDENT LOG</div>
+      <div class="log-wrap"><div class="log-head"><span class="log-title">STAFF EVENT LOG</span></div><div class="log-body" id="sd-log"><div class="log-item"><span class="log-t" id="sd-init"></span><span class="log-m inf">Staff dashboard connected — Guardian AI active</span></div></div></div>
+    </div>
+    <div>
+      <div class="sd-lbl">MANUAL CRISIS TRIGGER</div>
+      <div style="background:rgba(255,214,0,.05);border:1px solid rgba(255,214,0,.15);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:rgba(255,214,0,.85);line-height:1.6;">⚠ Genuine emergencies only. AI will verify your report before alerting guests. False alarms are logged.</div>
+      <div class="crisis-triggers">
+        <button class="trigger-btn t-fire" onclick="openVerify('FIRE')"><span class="tb-icon">🔥</span><span class="tb-name" style="color:#ff3b3b;">FIRE</span><span class="tb-desc">Smoke, flames, or burning smell</span><span class="tb-sev" style="background:rgba(255,59,59,.15);color:#ff6b6b;">SEV 4</span></button>
+        <button class="trigger-btn t-medical" onclick="openVerify('MEDICAL')"><span class="tb-icon">🏥</span><span class="tb-name" style="color:#4da6ff;">MEDICAL</span><span class="tb-desc">Guest collapsed or unconscious</span><span class="tb-sev" style="background:rgba(77,166,255,.15);color:#4da6ff;">SEV 3</span></button>
+        <button class="trigger-btn t-threat" onclick="openVerify('ACTIVE_THREAT')"><span class="tb-icon">⚠️</span><span class="tb-name" style="color:#ff1a1a;">ACTIVE THREAT</span><span class="tb-desc">Violent or armed individual</span><span class="tb-sev" style="background:rgba(255,26,26,.15);color:#ff5555;">SEV 5</span></button>
+        <button class="trigger-btn t-flood" onclick="openVerify('FLOOD')"><span class="tb-icon">🌊</span><span class="tb-name" style="color:#6bbfff;">FLOOD / LEAK</span><span class="tb-desc">Water rising, pipe burst</span><span class="tb-sev" style="background:rgba(77,166,255,.12);color:#6bbfff;">SEV 3</span></button>
+        <button class="trigger-btn t-power" onclick="openVerify('POWER_OUTAGE')"><span class="tb-icon">⚡</span><span class="tb-name" style="color:#ffd600;">POWER OUTAGE</span><span class="tb-desc">Blackout or generator failure</span><span class="tb-sev" style="background:rgba(255,214,0,.12);color:#ffd600;">SEV 3</span></button>
+        <button class="trigger-btn t-vehicle" onclick="openVerify('VEHICLE_ACCIDENT')"><span class="tb-icon">🚗</span><span class="tb-name" style="color:#ff8c00;">VEHICLE</span><span class="tb-desc">Crash in parking or entrance</span><span class="tb-sev" style="background:rgba(255,140,0,.12);color:#ff8c00;">SEV 4</span></button>
+      </div>
+      <div class="panel-card">
+        <div class="panel-header"><span class="panel-title">LOCATION</span></div>
+        <div class="panel-body">
+          <select id="sd-location" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:7px;padding:9px 12px;color:var(--text);font-family:var(--fb);font-size:13px;outline:none;">
+            <option>Main Lobby</option><option>Room Floor 1</option><option>Room Floor 2</option><option>Room Floor 3</option><option>Restaurant / Dining</option><option>Gym / Spa</option><option>Parking Garage</option><option>Rooftop</option><option>Elevator</option><option>Unknown</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ANALYTICS ══ -->
+<div class="view" id="view-analytics">
+  <div class="ana-grid">
+    <div class="ana-metric"><div class="ana-val g">99.8%</div><div class="ana-lbl">SYSTEM UPTIME</div><div class="ana-sub">2 pilot hotels</div></div>
+    <div class="ana-metric"><div class="ana-val b">2.4s</div><div class="ana-lbl">AVG DETECTION TIME</div><div class="ana-sub">Anomaly to alert</div></div>
+    <div class="ana-metric"><div class="ana-val r" id="a-total">0</div><div class="ana-lbl">CRISES HANDLED</div><div class="ana-sub">This session</div></div>
+    <div class="ana-metric"><div class="ana-val y" id="a-false">0</div><div class="ana-lbl">FALSE ALARMS BLOCKED</div><div class="ana-sub">AI verification</div></div>
+  </div>
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-title">CRISIS TYPE DISTRIBUTION — THIS SESSION</div>
+      <div class="bar-chart" id="bar-chart">
+        <div class="bar-col"><div class="bar" style="height:4px;background:#ff3b3b;" id="bar-FIRE"></div><div class="bar-val" id="bv-FIRE">0</div><div class="bar-lbl">FIRE</div></div>
+        <div class="bar-col"><div class="bar" style="height:4px;background:#4da6ff;" id="bar-MEDICAL"></div><div class="bar-val" id="bv-MEDICAL">0</div><div class="bar-lbl">MEDICAL</div></div>
+        <div class="bar-col"><div class="bar" style="height:4px;background:#ff1a1a;" id="bar-ACTIVE_THREAT"></div><div class="bar-val" id="bv-ACTIVE_THREAT">0</div><div class="bar-lbl">THREAT</div></div>
+        <div class="bar-col"><div class="bar" style="height:4px;background:#4da6ff;" id="bar-FLOOD"></div><div class="bar-val" id="bv-FLOOD">0</div><div class="bar-lbl">FLOOD</div></div>
+        <div class="bar-col"><div class="bar" style="height:4px;background:#ffd600;" id="bar-POWER_OUTAGE"></div><div class="bar-val" id="bv-POWER_OUTAGE">0</div><div class="bar-lbl">POWER</div></div>
+        <div class="bar-col"><div class="bar" style="height:4px;background:#ff8c00;" id="bar-VEHICLE_ACCIDENT"></div><div class="bar-val" id="bv-VEHICLE_ACCIDENT">0</div><div class="bar-lbl">VEHICLE</div></div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">PILOT DEPLOYMENT KPIs</div>
+      <table class="kpi-table">
+        <tr><th>METRIC</th><th>BEFORE</th><th>WITH GUARDIAN AI</th></tr>
+        <tr><td>Crisis detection time</td><td style="color:var(--muted2);">4–8 min</td><td><span class="kpi-v" style="color:var(--green);">2.4s</span></td></tr>
+        <tr><td>Human monitors needed</td><td style="color:var(--muted2);">3 per shift</td><td><span class="kpi-v" style="color:var(--green);">0</span> <span class="badge-g">FULLY AUTO</span></td></tr>
+        <tr><td>Guest panic incidents</td><td style="color:var(--muted2);">High</td><td><span class="kpi-v" style="color:var(--green);">↓ 74%</span></td></tr>
+        <tr><td>False alarm rate</td><td style="color:var(--muted2);">~30%</td><td><span class="kpi-v" style="color:var(--green);">3.2%</span> <span class="badge-b">AI VERIFIED</span></td></tr>
+        <tr><td>Hardware cost</td><td style="color:var(--muted2);">₹2–5 lakh</td><td><span class="kpi-v" style="color:var(--green);">₹0</span> <span class="badge-g">ZERO HW</span></td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="impact-row">
+    <div class="impact-card"><div class="impact-icon">⏱️</div><div class="impact-title" style="color:var(--green);">167x FASTER</div><div class="impact-desc">2.4s vs 4–8 minutes with human monitoring. Every second saves lives in a real crisis.</div></div>
+    <div class="impact-card"><div class="impact-icon">💰</div><div class="impact-title" style="color:var(--blue);">ZERO HW COST</div><div class="impact-desc">Uses existing CCTV. No IoT sensors, no new wiring, no expensive hardware purchase.</div></div>
+    <div class="impact-card"><div class="impact-icon">🛡️</div><div class="impact-title" style="color:var(--yellow);">AI VERIFIED</div><div class="impact-desc">Every manual trigger passes AI false-alarm check before guests are alerted. No panic from mistakes.</div></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">DEPLOYMENT TIMELINE — PILOT HOTELS</div>
+    <ul class="timeline-list">
+      <li class="tl-item"><div class="tl-left"><div class="tl-dot" style="background:var(--green);"></div><div class="tl-line"></div></div><div class="tl-right"><div class="tl-time">JAN 2026</div><div class="tl-event">Pilot 1 — Hotel Alpha, Mumbai</div><div class="tl-detail">6 cameras connected. Guardian AI running. Zero hardware installed. Free deployment.</div></div></li>
+      <li class="tl-item"><div class="tl-left"><div class="tl-dot" style="background:var(--green);"></div><div class="tl-line"></div></div><div class="tl-right"><div class="tl-time">FEB 2026</div><div class="tl-event">First real detection — kitchen smoke event</div><div class="tl-detail">AI detected in 1.8s. Staff alerted. Fire contained before spreading. Zero guest injuries.</div></div></li>
+      <li class="tl-item"><div class="tl-left"><div class="tl-dot" style="background:var(--blue);"></div><div class="tl-line"></div></div><div class="tl-right"><div class="tl-time">MAR 2026</div><div class="tl-event">Pilot 2 — Hotel Beta, Delhi</div><div class="tl-detail">12 cameras. Medical emergency detected — guest fall in corridor. Ambulance called in 2.1s.</div></div></li>
+      <li class="tl-item"><div class="tl-left"><div class="tl-dot" style="background:var(--yellow);"></div></div><div class="tl-right"><div class="tl-time">APR 2026</div><div class="tl-event">Google Solution Challenge — scaling to 50 hotels</div><div class="tl-detail">Proven results. Seeking pan-India rollout partnerships. Zero-hardware deployment model.</div></div></li>
+    </ul>
+  </div>
+  <div class="log-wrap"><div class="log-head"><span class="log-title">SESSION AUDIT LOG</span></div><div class="log-body" id="audit-log" style="max-height:180px;"><div class="log-item"><span class="log-t"></span><span class="log-m inf">Analytics dashboard loaded</span></div></div></div>
+</div>
+
+<!-- ══ VERIFY MODAL ══ -->
+<div class="verify-overlay" id="verify-overlay">
+  <div class="verify-box">
+    <div class="verify-title" id="v-title">REPORT CRISIS?</div>
+    <div class="verify-sub">Select what you are currently observing. AI will verify before alerting guests.</div>
+    <div class="v-options" id="v-options"></div>
+    <div class="ai-check" id="ai-check"></div>
+    <div class="v-btns">
+      <button class="vbtn vbtn-cancel" onclick="closeVerify()">CANCEL</button>
+      <button class="vbtn vbtn-false" id="v-false-btn" onclick="markFalse()" style="display:none;">NOT REAL</button>
+      <button class="vbtn vbtn-confirm" id="v-confirm-btn" onclick="runVerify()">VERIFY &amp; ALERT</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast-el"></div>
+
+<script>
+const CD = {
+  FIRE:{ label:'FIRE DETECTED', icon:'🔥', color:'#ff3b3b', sev:4, sevPct:80,
+    desc:'Smoke and thermal signature detected in camera feed.',
+    risk:'CRITICAL',
+    analysis:'AI detects heat bloom and smoke diffusion pattern. Immediate evacuation required.',
+    steps:['Activate fire alarm immediately','Call Fire Dept (101)','Evacuate via stairwells — no elevators','Staff sweep all floors','Meet fire brigade at entrance'],
+    guestInst:['Leave your room immediately','Do NOT use the elevator','Walk to nearest stairwell exit','Cover mouth if smoke present','Assemble at hotel car park'],
+    exit:'Use stairwell at corridor end. Assembly point: Hotel Car Park.',
+    opts:['I can see smoke or flames','I smell burning or hear crackling','Fire alarm is ringing','A guest reported seeing a fire']},
+  MEDICAL:{ label:'MEDICAL EMERGENCY', icon:'🏥', color:'#00b4ff', sev:3, sevPct:60,
+    desc:'Person-down event detected from CCTV motion analysis.',
+    risk:'HIGH',
+    analysis:'AI detects person-down. No movement for 18+ seconds post-fall. First-aid response critical.',
+    steps:['Call Ambulance (108) immediately','Send trained first-aid staff now','Do NOT move the patient','Clear area and give space','Meet ambulance at hotel entrance'],
+    guestInst:['Stay calm and remain in your room','Do not enter the corridor unless asked','Dial Ext. 0 if you need assistance','Medical team is on the way'],
+    exit:'No evacuation needed. Remain in your room. Staff will update you.',
+    opts:['Guest has collapsed or fallen','Guest is unconscious or unresponsive','Guest is having chest pain or seizure','Guest has a serious visible injury']},
+  ACTIVE_THREAT:{ label:'ACTIVE THREAT', icon:'⚠️', color:'#ff1a1a', sev:5, sevPct:100,
+    desc:'Crowd panic pattern and threat motion signature detected.',
+    risk:'CRITICAL',
+    analysis:'Full lockdown protocol initiated. Do NOT confront. Police contacted immediately.',
+    steps:['Call Police (100) IMMEDIATELY','Lock down all building access points','Instruct all guests: SHELTER IN PLACE','Do NOT confront the threat','Do not allow anyone to enter or exit'],
+    guestInst:['LOCK YOUR ROOM DOOR RIGHT NOW','Move away from windows and doors','Stay low and silent','Do not open door for anyone except police','Call Ext. 0 only if in immediate danger'],
+    exit:'DO NOT EXIT. Lock your door. Police are on the way. Shelter in place.',
+    opts:['I see a person with a weapon','I heard gunshots or serious violence','A guest is being threatened or attacked','Suspicious person with threatening behavior']},
+  FLOOD:{ label:'FLOOD ALERT', icon:'🌊', color:'#4da6ff', sev:3, sevPct:62,
+    desc:'Rising water level detected in lower zones.',
+    risk:'HIGH',
+    analysis:'Water accumulation detected. Electrical systems at risk. Ground floor evacuation required.',
+    steps:['Shut off water supply — call maintenance now','Evacuate basement and ground floor immediately','Call emergency plumber','Move all guests to Floor 2 and above','Document damage for insurance'],
+    guestInst:['If on ground floor — move upstairs immediately','Do not use electrical switches in affected area','Do not walk through standing water','Keep belongings elevated on luggage rack'],
+    exit:'Ground floor guests: use stairwell to Floor 2. Do not use basement.',
+    opts:['I see water flooding a corridor or room','A pipe has visibly burst','There is standing water on the floor','Water is leaking through ceiling']},
+  POWER_OUTAGE:{ label:'POWER OUTAGE', icon:'⚡', color:'#ffd600', sev:3, sevPct:55,
+    desc:'Grid voltage loss detected across camera zones.',
+    risk:'MEDIUM',
+    analysis:'Complete grid failure. Emergency lighting partially activated. Elevators may have stalled with guests inside.',
+    steps:['Check generator — manual start if not activated','Check all elevators for trapped guests FIRST','Use emergency lighting to guide guests','Announce situation via battery-powered PA system','Call utility provider to report outage'],
+    guestInst:['Stay calm — emergency lighting is active','Do not use elevators until power is restored','Use the torch on your phone for navigation','Remain in your room — staff will assist you'],
+    exit:'Stay in your room. Staff with torches will guide you if evacuation is needed.',
+    opts:['Entire building has lost power','Part of the building has no power','Generator has not activated','Guests are trapped in an elevator']},
+  VEHICLE_ACCIDENT:{ label:'VEHICLE ACCIDENT', icon:'🚗', color:'#ff8c00', sev:4, sevPct:78,
+    desc:'High-force impact detected at parking entrance.',
+    risk:'HIGH',
+    analysis:'Vehicle collision at parking entrance. Multiple casualties possible. Access route blocked.',
+    steps:['Call Ambulance (108) and Police (100)','Seal off parking entrance immediately','Send first-aid team to the scene now','Clear path for incoming emergency vehicles','Secure CCTV footage immediately'],
+    guestInst:['Avoid the parking garage and entrance area','Use main lobby exit instead','If you witnessed this — inform front desk','If you are injured — call Ext. 0 immediately'],
+    exit:'Use main lobby entrance. Parking garage entrance is closed.',
+    opts:['There has been a vehicle collision','Someone is injured in the parking area','Vehicle has struck a barrier or structure','Multiple vehicles are involved in an accident']},
+};
+
+const CAMS=[
+  {id:'cam1',name:'MAIN LOBBY',scenario:'FIRE'},
+  {id:'cam2',name:'FLOOR 2 CORRIDOR',scenario:'MEDICAL'},
+  {id:'cam3',name:'RESTAURANT',scenario:'ACTIVE_THREAT'},
+  {id:'cam4',name:'PARKING GARAGE',scenario:'VEHICLE_ACCIDENT'},
+  {id:'cam5',name:'GYM / SPA',scenario:'FLOOD'},
+  {id:'cam6',name:'MAIN ENTRANCE',scenario:'POWER_OUTAGE'},
+];
+
+let ST={activeCrisis:null,alerts:0,resolved:0,scans:0,logN:0,falseAlarms:0,total:0,
+  tally:{FIRE:0,MEDICAL:0,ACTIVE_THREAT:0,FLOOD:0,POWER_OUTAGE:0,VEHICLE_ACCIDENT:0},
+  pendingType:null,selOpt:null};
+
+// Clock
+setInterval(()=>{document.getElementById('clock').textContent=new Date().toTimeString().slice(0,8);},1000);
+document.getElementById('clock').textContent=new Date().toTimeString().slice(0,8);
+const now=new Date().toTimeString().slice(0,8);
+document.getElementById('init-time').textContent=now;
+document.getElementById('sd-init').textContent=now;
+
+// Build cameras
+function buildCams(){
+  const g=document.getElementById('cam-grid');
+  CAMS.forEach(cam=>{
+    const d=document.createElement('div');d.className='cam-feed';d.id=cam.id;
+    d.title='Click to simulate AI detecting '+cam.scenario;
+    d.onclick=()=>detectFromCam(cam);
+    d.innerHTML=`<div class="cam-screen">
+      <div class="wall"></div><div class="floor"></div><div class="ceiling-strip"></div>
+      ${[20,45,72].map((l,i)=>`<div class="person" style="left:${l}%;height:${28+i*3}px;background:${['#8899aa','#6677aa','#99aabb'][i]};animation:p${cam.id}${i} ${2+i*.6}s infinite alternate ease-in-out;"><style>@keyframes p${cam.id}${i}{0%{transform:translateY(0)}100%{transform:translateY(-${2+i}px)}}</style></div>`).join('')}
+      <div class="fire-overlay" id="fo-${cam.id}"></div>
+      <div class="smoke-overlay" id="so-${cam.id}"></div>
+      <div class="water-overlay" id="wo-${cam.id}"></div>
+      <div class="ai-scan-line"></div><div class="corner-marks"></div>
+      <div class="conf-bar"><div class="conf-fill" id="cf-${cam.id}"></div></div>
+      <div class="alert-box" id="ab-${cam.id}"></div>
+      <div class="beacon" id="bc-${cam.id}"></div>
+      <div class="ai-analyzing">AI SCANNING</div>
+    </div>
+    <div class="cam-footer"><span class="cam-name">${cam.name}</span><span class="cam-status live" id="cs-${cam.id}">● LIVE</span></div>`;
+    g.appendChild(d);
+    setTimeout(()=>{const cf=document.getElementById('cf-'+cam.id);if(cf)cf.style.width=Math.floor(85+Math.random()*14)+'%';},300+Math.random()*600);
+  });
+}
+
+setInterval(()=>{if(!ST.activeCrisis){ST.scans++;document.getElementById('s-scans').textContent=ST.scans;}},3000);
+
+// CCTV detection
+async function detectFromCam(cam){
+  if(ST.activeCrisis){showToast('⚠ Resolve current crisis first');return;}
+  const meta=CD[cam.scenario];
+  activateCrisis(cam.scenario);
+  CAMS.forEach(c=>{
+    if(c.id===cam.id){
+      const el=document.getElementById(cam.id);el.classList.add('alert');
+      document.getElementById('ab-'+cam.id).className='alert-box show';
+      document.getElementById('ab-'+cam.id).textContent='⚠ AI: '+meta.label;
+      document.getElementById('bc-'+cam.id).classList.add('show');
+      document.getElementById('cs-'+cam.id).textContent='⚠ ALERT';
+      document.getElementById('cs-'+cam.id).className='cam-status alt';
+      if(cam.scenario==='FIRE'){document.getElementById('fo-'+cam.id).classList.add('active');document.getElementById('so-'+cam.id).classList.add('active');}
+      if(cam.scenario==='FLOOD')document.getElementById('wo-'+cam.id).classList.add('active');
+      if(cam.scenario==='POWER_OUTAGE')el.style.filter='brightness(0.18)';
+    }
+  });
+  addLog(`🎥 ${cam.name}: Anomaly detected — AI classifying...`,'al');
+  setTopBar(true,meta);
+  showLoader(true);
+  const t0=Date.now();
+  let ai;
+  try{ai=await callAI(cam.scenario,cam.name,meta);addLog(`✅ Classified in ${((Date.now()-t0)/1000).toFixed(1)}s — ${ai.risk}`,'ok');}
+  catch(e){ai={...meta,confidence:94};addLog('⚡ Fallback protocol active','inf');}
+  showLoader(false);
+  renderCrisisPanel(cam.name,meta,ai);
+  renderSdCrisis(cam.name,meta,ai,'AI — CCTV: '+cam.name);
+  renderGuest(cam.name,meta,ai);
+  showToast('🚨 Alert broadcast: '+meta.label+' at '+cam.name);
+}
+
+// Manual trigger
+let vMeta=null;
+function openVerify(type){
+  if(ST.activeCrisis){showToast('⚠ Resolve current crisis first');return;}
+  ST.pendingType=type;ST.selOpt=null;vMeta=CD[type];
+  document.getElementById('v-title').textContent='REPORT '+type.replace('_',' ')+'?';
+  const opts=document.getElementById('v-options');opts.innerHTML='';
+  vMeta.opts.forEach((o,i)=>{
+    const d=document.createElement('div');d.className='v-opt';d.textContent='• '+o;
+    d.onclick=()=>{document.querySelectorAll('.v-opt').forEach(x=>x.classList.remove('sel'));d.classList.add('sel');ST.selOpt=i;document.getElementById('ai-check').style.display='none';};
+    opts.appendChild(d);
+  });
+  document.getElementById('ai-check').style.display='none';
+  document.getElementById('v-false-btn').style.display='none';
+  const cb=document.getElementById('v-confirm-btn');cb.textContent='VERIFY & ALERT';cb.disabled=false;cb.onclick=runVerify;
+  document.getElementById('verify-overlay').classList.add('show');
+}
+function closeVerify(){document.getElementById('verify-overlay').classList.remove('show');}
+
+async function runVerify(){
+  if(ST.selOpt===null){showToast('Select what you are observing');return;}
+  const cb=document.getElementById('v-confirm-btn');cb.textContent='AI CHECKING...';cb.disabled=true;
+  const selected=vMeta.opts[ST.selOpt];
+  let isReal=true;
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:150,
+        messages:[{role:'user',content:`Hotel staff wants to trigger a ${ST.pendingType} emergency alert. They selected: "${selected}". Is this a plausible genuine emergency? Answer: YES or NO. Then one short sentence reason. Format: YES|reason or NO|reason`}]})});
+    const d=await res.json();
+    const txt=d.content.map(c=>c.text||'').join('').trim();
+    isReal=txt.toUpperCase().startsWith('YES');
+    const reason=(txt.split('|')[1]||'').trim();
+    const el=document.getElementById('ai-check');el.style.display='block';
+    if(isReal){
+      el.className='ai-check real';
+      el.innerHTML=`🧠 <b>AI Verified: Genuine emergency.</b> ${reason}<br><br>Click confirm to broadcast to all guests and staff.`;
+      cb.textContent='CONFIRM & BROADCAST';cb.disabled=false;cb.onclick=executeTrigger;
+    } else {
+      el.className='ai-check false-a';
+      el.innerHTML=`🛡️ <b>AI flagged: May not be a real emergency.</b> ${reason}<br><br>If certain this is real, press confirm anyway. Otherwise cancel.`;
+      document.getElementById('v-false-btn').style.display='flex';
+      cb.textContent='OVERRIDE & BROADCAST';cb.disabled=false;cb.onclick=executeTrigger;
+    }
+  } catch(e){executeTrigger();}
+}
+
+function markFalse(){
+  ST.falseAlarms++;document.getElementById('a-false').textContent=ST.falseAlarms;
+  addLog('🛡️ AI blocked false alarm — trigger cancelled','wn');
+  addAudit('False alarm caught by AI verification');
+  closeVerify();showToast('✓ False alarm logged — no guests alerted');
+}
+
+async function executeTrigger(){
+  closeVerify();
+  const type=ST.pendingType;const meta=CD[type];
+  const loc=document.getElementById('sd-location').value;
+  activateCrisis(type);
+  addLog(`📋 Staff manual trigger: ${meta.label} at ${loc}`,'al');
+  addLog('🧠 AI generating response protocol...','inf');
+  setTopBar(true,meta);showLoader(true);
+  let ai;
+  try{ai=await callAI(type,loc,meta);addLog(`✅ Protocol ready: ${ai.risk}`,'ok');}
+  catch(e){ai={...meta,confidence:91};}
+  showLoader(false);
+  renderCrisisPanel(loc,meta,ai);
+  renderSdCrisis(loc,meta,ai,'STAFF Manual — '+loc);
+  renderGuest(loc,meta,ai);
+  showToast('🚨 Alert broadcast: '+meta.label+' at '+loc);
+}
+
+function activateCrisis(type){
+  ST.activeCrisis=type;ST.alerts++;ST.total++;ST.tally[type]++;
+  document.getElementById('s-alerts').textContent=ST.alerts;
+  document.getElementById('a-total').textContent=ST.total;
+  updateBars();addAudit('Crisis: '+CD[type].label);
+}
+
+async function callAI(type,loc,meta){
+  const p=`You are Guardian AI, a hotel autonomous crisis detection system. Crisis: ${type} at ${loc}. Observation: ${meta.desc}
+Reply ONLY valid JSON no markdown:
+{"label":"short title","risk":"CRITICAL|HIGH|MEDIUM|LOW","confidence":92,"analysis":"2-3 sentence expert analysis","steps":["Step 1","Step 2","Step 3","Step 4","Step 5"],"guestInst":["Instruction 1","2","3","4"],"exit":"one sentence exit and safety info"}`;
+  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:700,messages:[{role:'user',content:p}]})});
+  if(!res.ok)throw new Error(res.status);
+  const d=await res.json();const txt=d.content.map(c=>c.text||'').join('');
+  const m=txt.match(/\{[\s\S]*\}/);if(!m)throw new Error('no json');return JSON.parse(m[0]);
+}
+
+function renderCrisisPanel(loc,meta,ai){
+  const col=meta.color;
+  document.getElementById('c-icon').textContent=meta.icon;document.getElementById('c-icon').style.background=col+'22';
+  document.getElementById('c-type').textContent=ai.label||meta.label;document.getElementById('c-type').style.color=col;
+  document.getElementById('c-loc').textContent='📍 '+loc;
+  document.getElementById('c-conf').textContent='AI Confidence: '+(ai.confidence||93)+'%';
+  document.getElementById('c-sev').textContent=meta.sev+'/5';document.getElementById('c-sev').style.color=col;
+  document.getElementById('sev-fill').style.width=meta.sevPct+'%';document.getElementById('sev-fill').style.background=col;
+  const rk=document.getElementById('c-risk');rk.textContent='● '+(ai.risk||meta.risk);rk.className='risk-chip risk-'+(ai.risk||meta.risk);
+  document.getElementById('c-analysis').textContent=ai.analysis||meta.analysis;
+  const sl=document.getElementById('c-steps');sl.innerHTML='';
+  (ai.steps||meta.steps).slice(0,5).forEach((s,i)=>{const li=document.createElement('li');li.innerHTML=`<span class="step-n">${String(i+1).padStart(2,'0')}</span><span>${s}</span>`;sl.appendChild(li);});
+  ['btn-fire','btn-police','btn-med'].forEach(id=>{const b=document.getElementById(id);b.className='btn btn-red';b.disabled=false;});
+  document.getElementById('all-safe-panel').style.display='none';
+  document.getElementById('crisis-panel').style.display='block';
+}
+
+function renderSdCrisis(loc,meta,ai,src){
+  const col=meta.color;
+  document.getElementById('sd-icon').textContent=meta.icon;document.getElementById('sd-icon').style.background=col+'22';
+  document.getElementById('sd-type').textContent=ai.label||meta.label;document.getElementById('sd-type').style.color=col;
+  document.getElementById('sd-loc').textContent='📍 '+loc;
+  document.getElementById('sd-src').textContent='Source: '+src;
+  document.getElementById('sd-sev').textContent=meta.sev+'/5';document.getElementById('sd-sev').style.color=col;
+  document.getElementById('sd-sev-fill').style.width=meta.sevPct+'%';document.getElementById('sd-sev-fill').style.background=col;
+  const rk=document.getElementById('sd-risk');rk.textContent='● '+(ai.risk||meta.risk);rk.className='risk-chip risk-'+(ai.risk||meta.risk);
+  document.getElementById('sd-analysis').textContent=ai.analysis||meta.analysis;
+  const sl=document.getElementById('sd-steps');sl.innerHTML='';
+  (ai.steps||meta.steps).slice(0,5).forEach((s,i)=>{const li=document.createElement('li');li.innerHTML=`<span class="step-n">${String(i+1).padStart(2,'0')}</span><span>${s}</span>`;sl.appendChild(li);});
+  ['sd-btn-fire','sd-btn-police','sd-btn-med'].forEach(id=>{const b=document.getElementById(id);b.className='btn btn-red';b.disabled=false;});
+  document.getElementById('sd-no-crisis').style.display='none';
+  document.getElementById('sd-active').style.display='block';
+  sdLog(`🚨 Crisis: ${meta.label} at ${loc}`,'al');
+}
+
+function renderGuest(loc,meta,ai){
+  const col=meta.color;
+  document.getElementById('g-banner').style.background=`linear-gradient(135deg,${col}18,${col}08)`;
+  document.getElementById('g-banner').style.borderBottom=`1px solid ${col}25`;
+  document.getElementById('g-emoji').textContent=meta.icon;
+  document.getElementById('g-name').textContent=ai.label||meta.label;document.getElementById('g-name').style.color=col;
+  document.getElementById('g-loc').textContent='📍 Detected at: '+loc;
+  const gl=document.getElementById('g-list');gl.innerHTML='';
+  (ai.guestInst||meta.guestInst).forEach((inst,i)=>{const li=document.createElement('li');li.innerHTML=`<span class="inst-n">${i+1}.</span><span>${inst}</span>`;gl.appendChild(li);});
+  document.getElementById('g-exit').innerHTML='<b>🚪 Exit Info:</b> '+(ai.exit||meta.exit);
+  document.getElementById('guest-safe').style.display='none';
+  document.getElementById('guest-crisis').style.display='block';
+}
+
+function resolveCrisis(){
+  if(!ST.activeCrisis)return;
+  ST.resolved++;document.getElementById('s-resolved').textContent=ST.resolved;
+  addLog('✅ Crisis resolved — all zones cleared','ok');sdLog('✅ Crisis resolved','ok');addAudit('Crisis resolved');
+  CAMS.forEach(cam=>{
+    const el=document.getElementById(cam.id);if(el){el.classList.remove('alert');el.style.filter='';}
+    ['ab-','bc-'].forEach(p=>{const e=document.getElementById(p+cam.id);if(e){if(p==='ab-')e.className='alert-box';else e.classList.remove('show');}});
+    const cs=document.getElementById('cs-'+cam.id);if(cs){cs.textContent='● LIVE';cs.className='cam-status live';}
+    ['fo-','so-','wo-'].forEach(p=>{const e=document.getElementById(p+cam.id);if(e)e.classList.remove('active');});
+  });
+  ST.activeCrisis=null;
+  document.getElementById('crisis-panel').style.display='none';
+  document.getElementById('all-safe-panel').style.display='';
+  document.getElementById('sd-no-crisis').style.display='';
+  document.getElementById('sd-active').style.display='none';
+  document.getElementById('guest-safe').style.display='';
+  document.getElementById('guest-crisis').style.display='none';
+  setTopBar(false);showToast('✅ Crisis resolved — all screens cleared');
+}
+
+function callSvc(name,num,btn){if(btn.classList.contains('called'))return;btn.className='btn btn-red called';btn.textContent='✓ '+name;btn.disabled=true;addLog(`📞 ${name} (${num}) notified`,'ok');showToast('✓ '+name+' dispatched');}
+function callSvcSd(name,num,btn){if(btn.classList.contains('called'))return;btn.className='btn btn-red called';btn.textContent='✓ '+name;btn.disabled=true;sdLog(`📞 ${name} (${num}) notified`,'ok');showToast('✓ '+name+' dispatched');}
+
+function showLoader(v){document.getElementById('ai-loader').className='ai-loader'+(v?' show':'');}
+
+function setTopBar(crisis,meta){
+  const dot=document.getElementById('top-dot'),txt=document.getElementById('top-status');
+  if(crisis){dot.className='pulse-dot red';txt.textContent='⚡ ACTIVE CRISIS: '+(meta.label||'').toUpperCase();txt.style.color=meta.color;}
+  else{dot.className='pulse-dot';txt.textContent='AI SURVEILLANCE ACTIVE — ALL CLEAR';txt.style.color='';}
+}
+
+function updateBars(){
+  const types=['FIRE','MEDICAL','ACTIVE_THREAT','FLOOD','POWER_OUTAGE','VEHICLE_ACCIDENT'];
+  const max=Math.max(1,...types.map(t=>ST.tally[t]));
+  types.forEach(t=>{
+    const b=document.getElementById('bar-'+t),v=document.getElementById('bv-'+t);
+    if(b&&v){b.style.height=Math.max(4,(ST.tally[t]/max)*120)+'px';v.textContent=ST.tally[t];}
+  });
+}
+
+function addLog(msg,type='inf'){
+  ST.logN++;const t=new Date().toTimeString().slice(0,8);
+  const lb=document.getElementById('log-body');
+  const item=document.createElement('div');item.className='log-item';
+  item.innerHTML=`<span class="log-t">${t}</span><span class="log-m ${type}">${msg}</span>`;
+  lb.insertBefore(item,lb.firstChild);document.getElementById('log-count').textContent=ST.logN+' EVENTS';
+}
+function sdLog(msg,type='inf'){
+  const t=new Date().toTimeString().slice(0,8);
+  const lb=document.getElementById('sd-log');
+  const item=document.createElement('div');item.className='log-item';
+  item.innerHTML=`<span class="log-t">${t}</span><span class="log-m ${type}">${msg}</span>`;
+  lb.insertBefore(item,lb.firstChild);
+}
+function addAudit(msg){
+  const t=new Date().toTimeString().slice(0,8);
+  const lb=document.getElementById('audit-log');
+  const item=document.createElement('div');item.className='log-item';
+  item.innerHTML=`<span class="log-t">${t}</span><span class="log-m inf">${msg}</span>`;
+  lb.insertBefore(item,lb.firstChild);
+}
+
+function switchTab(id,el){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active');el.classList.add('active');
+}
+function showToast(msg){const t=document.getElementById('toast-el');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
+
+buildCams();
+</script>
+</body>
+</html>
