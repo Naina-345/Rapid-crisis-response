@@ -36,3 +36,5 @@ AI-Powered Emergency Management System for the Hospitality Industry
 ​AI/ML: Computer Vision for threat detection and Pattern Recognition for prank filtering.
 
 ​Data Visualization: Chart.js (for real-time analytics and reporting).
+**NOTE: this is only front end we have done the coding of backend integrating it with frontend is still left
+**
